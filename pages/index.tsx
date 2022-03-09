@@ -86,8 +86,7 @@ const mqttHost = process.env.NEXT_PUBLIC_MQTT_HOST as string
 
 const mqttOptions = {
   username: process.env.NEXT_PUBLIC_MQTT_USERNAME,
-  password: process.env.NEXT_PUBLIC_MQTT_PASSWORD,
-  topic: process.env.NEXT_PUBLIC_MQTT_TOPIC
+  password: process.env.NEXT_PUBLIC_MQTT_PASSWORD
 }
 
 const Home = () => {
