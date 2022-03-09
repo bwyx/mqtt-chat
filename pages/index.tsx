@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import Head from 'next/head'
+import useMqtt from '~/hooks/useMqtt'
 
 import { Container, Stack, Text } from '~/components/primitives'
 import TextBubble, { TextBubbleProps } from '~/components/TextBubble'
@@ -81,7 +82,16 @@ const messagesHistory: TextBubbleProps[] = [
   { text: 'xixixi', color: 'red', received: false }
 ]
 
+const mqttHost = process.env.NEXT_PUBLIC_MQTT_HOST as string
+
+const mqttOptions = {
+  username: process.env.NEXT_PUBLIC_MQTT_USERNAME,
+  password: process.env.NEXT_PUBLIC_MQTT_PASSWORD,
+  topic: process.env.NEXT_PUBLIC_MQTT_TOPIC
+}
+
 const Home = () => {
+  const { client, status } = useMqtt(mqttHost, mqttOptions)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<TextBubbleProps[]>(messagesHistory)
   const [newMessage, setNewMessage] = useState('')
@@ -92,12 +102,47 @@ const Home = () => {
     e.preventDefault()
     if (!newMessage) return
 
-    setMessages([
-      ...messages,
-      { text: newMessage, color: newMessageColor, received: false }
-    ])
+    client?.publish(
+      'chat/guest',
+      JSON.stringify({ text: newMessage, color: newMessageColor })
+    )
     setNewMessage('')
   }
+
+  const handleIncomingMessage = (topic: string, message: string) => {
+    if (topic === 'chat/bayu') {
+      setMessages((messages) => [
+        ...messages,
+        { text: message.toString(), color: 'green', received: true }
+      ])
+    }
+    if (topic === 'chat/guest') {
+      let { color, text } = JSON.parse(message)
+      const availableColors = [
+        'black',
+        'gray',
+        'brown',
+        'orange',
+        'yellow',
+        'blue',
+        'purple',
+        'pink',
+        'red'
+      ]
+
+      if (!availableColors.includes(color)) color = 'black'
+
+      setMessages((messages) => [...messages, { text, color, received: false }])
+    }
+  }
+
+  useEffect(() => {
+    if (!client) return
+
+    client.subscribe('chat/bayu')
+    client.subscribe('chat/guest')
+    client.on('message', handleIncomingMessage)
+  }, [client])
 
   useEffect(() => {
     document.documentElement.scrollTop = document.documentElement.scrollHeight
@@ -160,7 +205,7 @@ const Home = () => {
                 type="text"
                 onChange={(e) => setNewMessage(e.target.value)}
                 value={newMessage}
-                placeholder="Press Enter to send..."
+                placeholder={`${status}, Press Enter to send...`}
               />
             </form>
             <Stack style={{ marginTop: '.5rem' }}>
