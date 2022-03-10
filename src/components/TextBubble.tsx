@@ -1,11 +1,9 @@
-import { Stack } from '~/components/primitives'
-
 import { styled } from '~/styles'
 
 import type { VariantProps } from '@stitches/react'
 
 const Bubble = styled('span', {
-  mt: '$1',
+  margin: '$1 0 0 auto',
   py: '$2',
   px: '$4',
   maxWidth: '80%',
@@ -15,7 +13,10 @@ const Bubble = styled('span', {
   borderRadius: '$2xl $2xl 0 $2xl',
   variants: {
     received: {
-      true: { borderRadius: '$2xl $2xl $2xl 0' }
+      true: {
+        margin: '$1 auto 0 0',
+        borderRadius: '$2xl $2xl $2xl 0'
+      }
     },
     color: {
       black: { background: 'rgb(40 40 40)' },
@@ -39,11 +40,7 @@ export interface TextBubbleProps {
 }
 
 const TextBubble = ({ text, ...msg }: TextBubbleProps) => {
-  return (
-    <Stack x={msg.received ? 'left' : 'right'}>
-      <Bubble {...msg}>{text}</Bubble>
-    </Stack>
-  )
+  return <Bubble {...msg}>{text}</Bubble>
 }
 
 export default TextBubble
