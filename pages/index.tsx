@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Head from 'next/head'
+import { produce } from 'immer'
+import { format, parseISO } from 'date-fns'
 import useMqtt from '~/hooks/useMqtt'
 
 import { Container, Stack, Text } from '~/components/primitives'
@@ -68,20 +70,6 @@ const ColorCircle = styled('button', {
   }
 })
 
-const messagesHistory: TextBubbleProps[] = [
-  { text: 'hello', color: 'red', received: false },
-  { text: 'hello', color: 'green', received: true },
-  { text: 'ehehe', color: 'red', received: false },
-  { text: 'ehehe too', color: 'green', received: true },
-  {
-    text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
-    color: 'red',
-    received: false
-  },
-  { text: 'nice', color: 'red', received: false },
-  { text: 'xixixi', color: 'red', received: false }
-]
-
 const mqttHost = process.env.NEXT_PUBLIC_MQTT_HOST as string
 
 const mqttOptions = {
@@ -89,10 +77,15 @@ const mqttOptions = {
   password: process.env.NEXT_PUBLIC_MQTT_PASSWORD
 }
 
+type Chats = {
+  date: string
+  chats: TextBubbleProps[]
+}
+
 const Home = () => {
-  const { client, status } = useMqtt(mqttHost, mqttOptions)
-  const messagesContainerRef = useRef<HTMLDivElement>(null)
-  const [messages, setMessages] = useState<TextBubbleProps[]>(messagesHistory)
+  const { client, status } = useMqtt('wss://' + mqttHost, mqttOptions)
+  const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false)
+  const [messages, setMessages] = useState<Chats[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [newMessageColor, setNewMessageColor] =
     useState<TextBubbleProps['color']>('red')
@@ -109,14 +102,11 @@ const Home = () => {
   }
 
   const handleIncomingMessage = (topic: string, message: string) => {
-    if (topic === 'chat/bayu') {
-      setMessages((messages) => [
-        ...messages,
-        { text: message.toString(), color: 'green', received: true }
-      ])
-    }
+    let received = false
+    let { color, text } = JSON.parse(message)
+    const date = format(new Date(), 'yyyy-MM-dd')
+
     if (topic === 'chat/guest') {
-      let { color, text } = JSON.parse(message)
       const availableColors = [
         'black',
         'gray',
@@ -130,18 +120,43 @@ const Home = () => {
       ]
 
       if (!availableColors.includes(color)) color = 'black'
-
-      setMessages((messages) => [...messages, { text, color, received: false }])
     }
+    if (topic === 'chat/bayu') {
+      received = true
+    }
+
+    setMessages((messages) =>
+      produce(messages, (draft) => {
+        const todayChats = draft.find((chat) => chat.date === date)
+        if (todayChats) {
+          todayChats.chats.push({ text, color, received })
+        } else {
+          draft.push({
+            date,
+            chats: [{ text, color, received }]
+          })
+        }
+      })
+    )
   }
 
   useEffect(() => {
-    if (!client) return
+    const fetchChatHistory = async () => {
+      const response = await fetch(`https://${mqttHost}/history`)
+      const messages = await response.json()
+      setMessages(messages)
+      setChatHistoryLoaded(true)
+    }
+    fetchChatHistory()
+  }, [])
+
+  useEffect(() => {
+    if (!chatHistoryLoaded || !client) return
 
     client.subscribe('chat/bayu')
     client.subscribe('chat/guest')
     client.on('message', handleIncomingMessage)
-  }, [client])
+  }, [chatHistoryLoaded, client])
 
   useEffect(() => {
     document.documentElement.scrollTop = document.documentElement.scrollHeight
@@ -173,15 +188,20 @@ const Home = () => {
 
       <Stack as="main" y="bottom" grow={true} style={{ minHeight: '100vh' }}>
         <Container>
-          <Stack
-            ref={messagesContainerRef}
-            dir="col"
-            style={{ paddingBottom: 100, paddingTop: 150 }}
-          >
-            {messages.map((chat, i) => (
-              <TextBubble key={i} {...chat} />
-            ))}
-          </Stack>
+          {messages.map(({ chats, date }) => {
+            return (
+              <Stack
+                key={date}
+                dir="col"
+                style={{ paddingBottom: 100, paddingTop: 150 }}
+              >
+                {format(parseISO(date), 'LLLL d, yyyy')}
+                {chats.map((chat, i) => (
+                  <TextBubble key={i} {...chat} />
+                ))}
+              </Stack>
+            )
+          })}
         </Container>
       </Stack>
 
