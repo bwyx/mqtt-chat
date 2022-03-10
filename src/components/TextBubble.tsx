@@ -12,7 +12,7 @@ const Bubble = styled('span', {
   lineHeight: '$snug',
   borderRadius: '$2xl $2xl 0 $2xl',
   variants: {
-    received: {
+    host: {
       true: {
         margin: '$1 auto 0 0',
         borderRadius: '$2xl $2xl $2xl 0'
@@ -36,7 +36,7 @@ const Bubble = styled('span', {
 export interface TextBubbleProps {
   text: string
   color: VariantProps<typeof Bubble>['color']
-  received?: boolean
+  host?: boolean
 }
 
 const TextBubble = ({ text, ...msg }: TextBubbleProps) => {

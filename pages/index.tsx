@@ -102,7 +102,7 @@ const Home = () => {
   }
 
   const handleIncomingMessage = (topic: string, message: string) => {
-    let received = false
+    let host = false
     let { color, text } = JSON.parse(message)
     const date = format(new Date(), 'yyyy-MM-dd')
 
@@ -121,19 +121,19 @@ const Home = () => {
 
       if (!availableColors.includes(color)) color = 'black'
     }
-    if (topic === 'chat/bayu') {
-      received = true
+    if (topic === 'chat/host') {
+      host = true
     }
 
     setMessages((messages) =>
       produce(messages, (draft) => {
         const todayChats = draft.find((chat) => chat.date === date)
         if (todayChats) {
-          todayChats.chats.push({ text, color, received })
+          todayChats.chats.push({ text, color, host })
         } else {
           draft.push({
             date,
-            chats: [{ text, color, received }]
+            chats: [{ text, color, host }]
           })
         }
       })
@@ -153,7 +153,7 @@ const Home = () => {
   useEffect(() => {
     if (!chatHistoryLoaded || !client) return
 
-    client.subscribe('chat/bayu')
+    client.subscribe('chat/host')
     client.subscribe('chat/guest')
     client.on('message', handleIncomingMessage)
   }, [chatHistoryLoaded, client])
