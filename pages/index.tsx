@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import { produce } from 'immer'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, formatDistance, isSameDay } from 'date-fns'
 import useMqtt from '~/hooks/useMqtt'
 
 import { Container, Stack, Text } from '~/components/primitives'
@@ -187,15 +187,25 @@ const Home = () => {
       </header>
 
       <Stack as="main" y="bottom" grow={true} style={{ minHeight: '100vh' }}>
-        <Container>
+        <Container style={{ paddingBottom: 100, paddingTop: 150 }}>
           {messages.map(({ chats, date }) => {
+            const time = parseISO(date)
+            const isToday = isSameDay(time, new Date())
             return (
-              <Stack
-                key={date}
-                dir="col"
-                style={{ paddingBottom: 100, paddingTop: 150 }}
-              >
-                {format(parseISO(date), 'LLLL d, yyyy')}
+              <Stack key={date} dir="col">
+                <Text
+                  size="sm"
+                  css={{
+                    color: 'rgb(140 144 137 / 0.35)',
+                    textAlign: 'center'
+                  }}
+                >
+                  {isToday
+                    ? 'Today'
+                    : formatDistance(parseISO(date), new Date(), {
+                        addSuffix: true
+                      })}
+                </Text>
                 {chats.map((chat, i) => (
                   <TextBubble key={i} {...chat} />
                 ))}
