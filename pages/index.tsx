@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import Head from 'next/head'
-import { produce } from 'immer'
-import { format, parseISO, formatDistance, isSameDay } from 'date-fns'
+import { formatDistance, isSameDay } from 'date-fns'
 import useMqtt from '~/hooks/useMqtt'
 
 import { Container, Stack, Text } from '~/components/primitives'
@@ -78,17 +77,32 @@ const mqttOptions = {
 }
 
 type Chats = {
-  date: string
+  date: number
   chats: TextBubbleProps[]
 }
 
 const Home = () => {
   const { client, status } = useMqtt('wss://' + mqttHost, mqttOptions)
   const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false)
-  const [messages, setMessages] = useState<Chats[]>([])
+  const [messages, setMessages] = useState<TextBubbleProps[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [newMessageColor, setNewMessageColor] =
     useState<TextBubbleProps['color']>('red')
+
+  const datedMessages = messages.reduce((chats: Chats[], msg) => {
+    const existing = chats.find((c) => isSameDay(c.date, msg.time))
+    if (!existing) {
+      chats.push({
+        date: msg.time,
+        chats: [msg]
+      })
+
+      return chats
+    }
+
+    existing.chats.push(msg)
+    return chats
+  }, [])
 
   const sendMessage = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -98,13 +112,20 @@ const Home = () => {
       'chat/guest',
       JSON.stringify({ text: newMessage, color: newMessageColor })
     )
+    fetch(`https://${mqttHost}/history`, {
+      mode: 'no-cors',
+      method: 'POST',
+      body: JSON.stringify({
+        text: newMessage,
+        color: newMessageColor
+      })
+    })
     setNewMessage('')
   }
 
   const handleIncomingMessage = (topic: string, message: string) => {
     let host = false
-    let { color, text } = JSON.parse(message)
-    const date = format(new Date(), 'yyyy-MM-dd')
+    let { color, text, time = Date.now() } = JSON.parse(message)
 
     if (topic === 'chat/guest') {
       const availableColors = [
@@ -125,19 +146,7 @@ const Home = () => {
       host = true
     }
 
-    setMessages((messages) =>
-      produce(messages, (draft) => {
-        const todayChats = draft.find((chat) => chat.date === date)
-        if (todayChats) {
-          todayChats.chats.push({ text, color, host })
-        } else {
-          draft.push({
-            date,
-            chats: [{ text, color, host }]
-          })
-        }
-      })
-    )
+    setMessages((messages) => [...messages, { text, color, time, host }])
   }
 
   useEffect(() => {
@@ -188,9 +197,8 @@ const Home = () => {
 
       <Stack as="main" y="bottom" grow={true} style={{ minHeight: '100vh' }}>
         <Container style={{ paddingBottom: 100, paddingTop: 150 }}>
-          {messages.map(({ chats, date }) => {
-            const time = parseISO(date)
-            const isToday = isSameDay(time, new Date())
+          {datedMessages.map(({ chats, date }) => {
+            const isToday = isSameDay(date, new Date())
             return (
               <Stack key={date} dir="col">
                 <Text
@@ -202,7 +210,7 @@ const Home = () => {
                 >
                   {isToday
                     ? 'Today'
-                    : formatDistance(parseISO(date), new Date(), {
+                    : formatDistance(date, new Date(), {
                         addSuffix: true
                       })}
                 </Text>

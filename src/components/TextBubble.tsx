@@ -36,10 +36,11 @@ const Bubble = styled('span', {
 export interface TextBubbleProps {
   text: string
   color: VariantProps<typeof Bubble>['color']
+  time: number
   host?: boolean
 }
 
-const TextBubble = ({ text, ...msg }: TextBubbleProps) => {
+const TextBubble = ({ text, time, ...msg }: TextBubbleProps) => {
   return <Bubble {...msg}>{text}</Bubble>
 }
 
